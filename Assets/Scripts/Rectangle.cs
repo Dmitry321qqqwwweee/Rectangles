@@ -6,7 +6,8 @@ using UnityEngine.UI;
 using System;
 using Random = UnityEngine.Random;
 
-public class Rectangle : MonoBehaviour, IPointerDownHandler, IPointerClickHandler, IBeginDragHandler, IDragHandler
+[RequireComponent(typeof(Collider2D))]
+public class Rectangle : MonoBehaviour, IPointerClickHandler, IBeginDragHandler, IDragHandler
 {
     private const float CLICK_DELAY_TIME = .2f;
 
@@ -15,24 +16,32 @@ public class Rectangle : MonoBehaviour, IPointerDownHandler, IPointerClickHandle
     [SerializeField]
     private Image _backgroundImage = default;
 
+    public Vector2 Size { get; private set; } = default;
+
     private Field _field = default;
 
     private bool _isClicked = false;
     private bool _isDraged = false;
 
-    public void Create(Vector2 position)
+    public Rectangle Create(Vector2 position)
     {
+        Size = GetComponent<Collider2D>().bounds.extents;
+
+        if (!_field.IsPlaceFreeForRectangle(this))
+        {
+            Destroy(gameObject);
+
+            return null;
+        }
+
         SetPosition(position);
 
         _backgroundImage.color = GetRandomColor();
+  
+        return this;
     }
 
     public Vector3 GetPosition() => transform.position;
-
-    public void OnPointerDown(PointerEventData eventData)
-    {
-        SetPosition(Input.mousePosition);
-    }
 
     public void OnPointerClick(PointerEventData eventData)
     {
@@ -61,7 +70,7 @@ public class Rectangle : MonoBehaviour, IPointerDownHandler, IPointerClickHandle
 
     public void OnDrag(PointerEventData eventData)
     {
-        SetPosition(eventData.position);
+        SetPosition();
     }
 
     private void ClickDelay()
@@ -71,7 +80,17 @@ public class Rectangle : MonoBehaviour, IPointerDownHandler, IPointerClickHandle
 
     private void SetPosition(Vector2 position)
     {
+        if (!_field.IsPlaceFreeForRectangle(this)) { return; }
+
         transform.position = Camera.main.ScreenToWorldPoint(position);
+        transform.localPosition = new Vector3(transform.localPosition.x, transform.localPosition.y, 0);
+
+        OnSetPosition(this);
+    }
+
+    private void SetPosition()
+    {
+        transform.position = _field.GetFreeRectanglePosition(this);
         transform.localPosition = new Vector3(transform.localPosition.x, transform.localPosition.y, 0);
 
         OnSetPosition(this);
@@ -89,6 +108,6 @@ public class Rectangle : MonoBehaviour, IPointerDownHandler, IPointerClickHandle
 
     private void OnDestroy()
     {
-        _field.DestroyLinksByRectangle(this);
+        _field.DestroyRectangle(this);
     }
 }
